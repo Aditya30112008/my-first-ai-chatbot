@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Chatbot — Powered by Groq</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f12;
+      --surface: #161a20;
+      --surface2: #1e2329;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.13);
+      --text: #e8eaed;
+      --text2: #8b9098;
+      --text3: #555c66;
+      --accent: #4ade80;
+      --accent-dim: rgba(74,222,128,0.12);
+      --user-bg: #1a2f22;
+      --user-color: #86efac;
+      --danger: #f87171;
+      --radius: 16px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 4px;
+      animation: fadeDown 0.5s ease both;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(74,222,128,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .header-title { font-size: 18px; font-weight: 600; color: var(--text); }
+    .header-sub { font-size: 12px; color: var(--text3); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+
+    .status-pill {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text3);
+      transition: background 0.3s;
+    }
+
+    .status-dot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+    /* API Key Section */
+    .key-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      animation: fadeUp 0.5s ease 0.1s both;
+    }
+
+    .key-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .key-row { display: flex; gap: 8px; }
+
+    input[type="password"], input[type="text"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="password"]:focus, input[type="text"]:focus {
+      border-color: rgba(74,222,128,0.4);
+    }
+
+    input::placeholder { color: var(--text3); }
+
+    button {
+      background: var(--accent-dim);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--accent);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 18px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    button:hover { background: rgba(74,222,128,0.2); border-color: rgba(74,222,128,0.5); }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .key-hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text3);
+    }
+
+    .key-hint.success { color: var(--accent); }
+    .key-hint.error { color: var(--danger); }
+
+    /* Chat window */
+    .chat-window {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 460px;
+      animation: fadeUp 0.5s ease 0.2s both;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border2) transparent;
+    }
+
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+    .msg { display: flex; gap: 10px; animation: msgIn 0.25s ease both; }
+    .msg.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .avatar.ai { background: var(--accent-dim); border: 1px solid rgba(74,222,128,0.2); }
+    .avatar.user { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.2); font-size: 11px; }
+
+    .bubble {
+      max-width: 75%;
+      padding: 11px 15px;
+      border-radius: 4px 14px 14px 14px;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+
+    .msg.user .bubble {
+      border-radius: 14px 4px 14px 14px;
+      background: var(--user-bg);
+      border-color: rgba(74,222,128,0.15);
+      color: var(--user-color);
+    }
+
+    .bubble.error { color: var(--danger); border-color: rgba(248,113,113,0.2); }
+
+    /* Typing dots */
+    .typing { display: flex; gap: 4px; align-items: center; padding: 6px 0; }
+    .typing span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text3);
+      animation: blink 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Input area */
+    .chat-input-area {
+      border-top: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .chat-input-area input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      font-size: 14px;
+      padding: 10px 14px;
+    }
+
+    .send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Model selector */
+    .model-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      animation: fadeUp 0.5s ease 0.3s both;
+    }
+
+    .model-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text3);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .model-chip:hover { border-color: var(--border2); color: var(--text2); }
+    .model-chip.active { background: var(--accent-dim); border-color: rgba(74,222,128,0.3); color: var(--accent); }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      animation: fadeUp 0.5s ease 0.4s both;
+      padding-bottom: 8px;
+    }
+
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes blink { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+    @media (max-width: 500px) {
+      .bubble { max-width: 88%; font-size: 13px; }
+      .header-title { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">🤖</div>
+    <div>
+      <div class="header-title">AI Chatbot</div>
+      <div class="header-sub">groq · llama3</div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">offline</span>
+    </div>
+  </div>
+
+  <!-- API Key Input -->
+  <div class="key-section">
+    <div class="key-label">Groq API Key</div>
+    <div class="key-row">
+      <input type="password" id="apiKeyInput" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx" />
+      <button onclick="saveKey()">Connect</button>
+    </div>
+    <div class="key-hint" id="keyHint">Key sirf tumhare browser mein rahegi — safe hai.</div>
+  </div>
+
+  <!-- Model Selector -->
+  <div class="model-bar">
+    <div class="model-chip active" onclick="selectModel(this,'llama-3.1-8b-instant')">llama-3.1-8b-instant ⚡</div>
+    <div class="model-chip" onclick="selectModel(this,'llama-3.3-70b-versatile')">llama-3.3-70b-versatile 🧠</div>
+    <div class="model-chip" onclick="selectModel(this,'openai/gpt-oss-120b')">gpt-oss-120b 💪</div>
+    <div class="model-chip" onclick="selectModel(this,'qwen/qwen3-32b')">qwen3-32b 🔥</div>
+  </div>
+
+  <!-- Chat Window -->
+  <div class="chat-window">
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg">
+        <div class="avatar ai">🤖</div>
+        <div class="bubble">
+          Namaste! Main tumhara AI assistant hoon. Pehle API key connect karo, phir kuch bhi pucho! 🙏
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <input type="text" id="msgInput" placeholder="Kuch bhi pucho... (Enter dabao)" onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button class="send-btn" onclick="sendMsg()" id="sendBtn">➤</button>
+    </div>
+  </div>
+
+  <div class="footer">built with groq api · llama3 · vanilla js · paste anywhere</div>
+
+</div>
+
+<script>
+  let apiKey = '';
+  let selectedModel = 'llama-3.1-8b-instant';
+  let messages = [];
+  let isLoading = false;
+
+  function selectModel(el, model) {
+    document.querySelectorAll('.model-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    selectedModel = model;
+  }
+
+  function saveKey() {
+    const val = document.getElementById('apiKeyInput').value.trim();
+    const hint = document.getElementById('keyHint');
+    if (!val.startsWith('gsk_')) {
+      hint.textContent = '❌ Invalid key! Groq keys gsk_ se start hoti hain.';
+      hint.className = 'key-hint error';
+      return;
+    }
+    apiKey = val;
+    hint.textContent = '✓ Connected! Ab chat shuru karo.';
+    hint.className = 'key-hint success';
+    document.getElementById('statusDot').classList.add('active');
+    document.getElementById('statusText').textContent = 'online';
+    document.getElementById('apiKeyInput').value = '•'.repeat(20);
+  }
+
+  function addMessage(role, text, isError = false) {
+    const box = document.getElementById('chatMessages');
+    const isUser = role === 'user';
+    const div = document.createElement('div');
+    div.className = 'msg' + (isUser ? ' user' : '');
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar ' + (isUser ? 'user' : 'ai');
+    avatar.textContent = isUser ? 'You' : '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble' + (isError ? ' error' : '');
+    bubble.textContent = text;
+
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return bubble;
+  }
+
+  function addTyping() {
+    const box = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = 'msg';
+    div.id = 'typingMsg';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar ai';
+    avatar.textContent = '🤖';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById('typingMsg');
+    if (t) t.remove();
+  }
+
+  async function sendMsg() {
+    if (!apiKey) { alert('Pehle API key connect karo!'); return; }
+    if (isLoading) return;
+
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    isLoading = true;
+    document.getElementById('sendBtn').disabled = true;
+
+    addMessage('user', text);
+    messages.push({ role: 'user', content: text });
+    addTyping();
+
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [
+            { role: 'system', content: 'You are a helpful, friendly AI assistant. Reply in the same language the user uses. Be concise and clear.' },
+            ...messages
+          ],
+          max_tokens: 1024,
+          temperature: 0.7
+        })
+      });
+
+      const data = await res.json();
+      removeTyping();
+
+      if (data.error) throw new Error(data.error.message);
+
+      const reply = data.choices[0].message.content;
+      addMessage('assistant', reply);
+      messages.push({ role: 'assistant', content: reply });
+
+    } catch (err) {
+      removeTyping();
+      addMessage('assistant', 'Error: ' + err.message, true);
+    }
+
+    isLoading = false;
+    document.getElementById('sendBtn').disabled = false;
+    document.getElementById('msgInput').focus();
+  }
+</script>
+
+</body>
+</html>
