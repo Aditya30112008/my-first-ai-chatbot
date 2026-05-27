@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Code Review Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#080b10;--s1:#0e1117;--s2:#141820;--s3:#1c2230;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#dde3ee;--text2:#7d8fa8;--text3:#3d4f63;
+  --green:#3ddc97;--green-dim:rgba(61,220,151,0.1);
+  --red:#ff6b6b;--red-dim:rgba(255,107,107,0.1);
+  --yellow:#ffd93d;--yellow-dim:rgba(255,217,61,0.1);
+  --blue:#4da6ff;--blue-dim:rgba(77,166,255,0.1);
+  --purple:#b48eff;--purple-dim:rgba(180,142,255,0.1);
+  --r:12px;
+}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* grid bg */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(61,220,151,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(61,220,151,0.025) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;}
+
+/* ── HEADER ── */
+.header{padding:20px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:rgba(8,11,16,0.9);backdrop-filter:blur(10px);position:sticky;top:0;z-index:100;}
+.logo-icon{width:38px;height:38px;border-radius:10px;background:var(--green-dim);border:1px solid rgba(61,220,151,0.25);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.logo-text{font-size:17px;font-weight:700;letter-spacing:-0.02em;}
+.logo-text span{color:var(--green);}
+.header-badge{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border2);border-radius:20px;padding:5px 14px;font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;}
+.hb-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:all 0.3s;}
+.hb-dot.on{background:var(--green);box-shadow:0 0 8px var(--green);}
+
+/* ── MAIN LAYOUT ── */
+.main{display:grid;grid-template-columns:1fr 1fr;gap:0;height:calc(100vh - 65px);}
+@media(max-width:768px){.main{grid-template-columns:1fr;height:auto;}}
+
+/* ── LEFT PANEL ── */
+.left-panel{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);}
+.ptab{flex:1;padding:12px;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:transparent;font-family:'Space Grotesk',sans-serif;transition:all 0.2s;border-bottom:2px solid transparent;}
+.ptab:hover{color:var(--text2);}
+.ptab.active{color:var(--green);border-bottom-color:var(--green);background:var(--green-dim);}
+
+/* GitHub tab */
+.github-tab{padding:20px;display:flex;flex-direction:column;gap:12px;flex:1;overflow-y:auto;}
+.gh-label{font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;}
+.gh-input-row{display:flex;gap:8px;}
+input[type=text],input[type=password],textarea,select{background:var(--s2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;padding:10px 14px;outline:none;transition:border-color 0.2s;width:100%;}
+input:focus,textarea:focus,select:focus{border-color:rgba(61,220,151,0.4);}
+input::placeholder,textarea::placeholder{color:var(--text3);}
+textarea{resize:vertical;font-family:'Fira Code',monospace;font-size:12px;line-height:1.6;}
+select option{background:var(--s2);}
+button{background:var(--green-dim);border:1px solid rgba(61,220,151,0.3);border-radius:var(--r);color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:500;padding:10px 18px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+button:hover{background:rgba(61,220,151,0.2);border-color:rgba(61,220,151,0.5);}
+button:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-danger{color:var(--red);border-color:rgba(255,107,107,0.3);background:var(--red-dim);}
+.btn-danger:hover{background:rgba(255,107,107,0.2);}
+
+/* code input tab */
+.code-tab{padding:20px;display:flex;flex-direction:column;gap:12px;flex:1;}
+.code-textarea{flex:1;min-height:280px;}
+
+/* api section */
+.api-section{padding:16px 20px;border-top:1px solid var(--border);background:var(--s1);}
+
+/* ── RIGHT PANEL ── */
+.right-panel{display:flex;flex-direction:column;overflow:hidden;}
+.review-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.review-title{font-size:13px;font-weight:600;}
+.review-meta{font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;}
+.score-badges{display:flex;gap:6px;}
+.score-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-family:'Fira Code',monospace;font-weight:500;}
+.score-badge.good{background:var(--green-dim);color:var(--green);border:1px solid rgba(61,220,151,0.25);}
+.score-badge.warn{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(255,217,61,0.25);}
+.score-badge.bad{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,107,107,0.25);}
+.score-badge.info{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(77,166,255,0.25);}
+
+.review-body{flex:1;overflow-y:auto;padding:16px 20px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+.review-body::-webkit-scrollbar{width:4px;}
+.review-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+
+/* review sections */
+.review-section{margin-bottom:18px;animation:slideIn 0.4s ease both;}
+.review-section:nth-child(2){animation-delay:0.1s;}
+.review-section:nth-child(3){animation-delay:0.2s;}
+.review-section:nth-child(4){animation-delay:0.3s;}
+.rs-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;}
+.rs-icon{font-size:14px;}
+
+.issue-card{background:var(--s2);border-radius:var(--r);padding:13px 15px;margin-bottom:8px;border-left:3px solid var(--border2);transition:transform 0.15s;}
+.issue-card:hover{transform:translateX(3px);}
+.issue-card.bug{border-left-color:var(--red);}
+.issue-card.optimize{border-left-color:var(--yellow);}
+.issue-card.suggest{border-left-color:var(--blue);}
+.issue-card.good{border-left-color:var(--green);}
+.issue-card.security{border-left-color:var(--purple);}
+
+.issue-type{font-size:10px;font-family:'Fira Code',monospace;font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
+.issue-card.bug .issue-type{color:var(--red);}
+.issue-card.optimize .issue-type{color:var(--yellow);}
+.issue-card.suggest .issue-type{color:var(--blue);}
+.issue-card.good .issue-type{color:var(--green);}
+.issue-card.security .issue-type{color:var(--purple);}
+
+.issue-msg{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:6px;}
+.issue-line{font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;}
+.issue-fix{background:var(--s3);border-radius:6px;padding:8px 10px;margin-top:8px;font-family:'Fira Code',monospace;font-size:11px;color:var(--green);line-height:1.5;}
+
+/* summary bar */
+.summary-bar{padding:12px 20px;border-top:1px solid var(--border);background:var(--s1);display:flex;gap:16px;flex-wrap:wrap;}
+.sum-stat{display:flex;align-items:center;gap:6px;font-size:12px;}
+.sum-dot{width:8px;height:8px;border-radius:50%;}
+
+/* empty state */
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text3);padding:40px;}
+.empty-icon{font-size:48px;opacity:0.4;}
+.empty-title{font-size:15px;font-weight:600;color:var(--text2);}
+.empty-sub{font-size:12px;text-align:center;line-height:1.6;max-width:260px;}
+
+/* loading */
+.loading-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.loading-spinner{width:40px;height:40px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin 0.8s linear infinite;}
+.loading-text{font-size:13px;color:var(--text3);}
+.loading-steps{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.ls{font-size:11px;font-family:'Fira Code',monospace;color:var(--text3);display:flex;align-items:center;gap:8px;}
+.ls.done{color:var(--green);}
+.ls.active{color:var(--yellow);}
+
+/* score ring */
+.score-ring-wrap{display:flex;align-items:center;gap:16px;padding:14px 20px;background:var(--s2);border-radius:var(--r);margin-bottom:16px;border:1px solid var(--border);}
+.score-ring{position:relative;width:56px;height:56px;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-ring-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:'Fira Code',monospace;}
+.score-ring-info{flex:1;}
+.score-ring-title{font-size:14px;font-weight:600;margin-bottom:4px;}
+.score-ring-sub{font-size:11px;color:var(--text3);}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo-icon">🔍</div>
+  <div>
+    <div class="logo-text">AI Code<span>Review</span></div>
+    <div style="font-size:10px;color:var(--text3);font-family:'Fira Code',monospace;">powered by groq · llama3.1</div>
+  </div>
+  <div class="header-badge">
+    <div class="hb-dot" id="hbDot"></div>
+    <span id="hbText">not connected</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="panel-tabs">
+      <button class="ptab active" onclick="switchTab('github',this)">🐙 GitHub URL</button>
+      <button class="ptab" onclick="switchTab('paste',this)">📋 Paste Code</button>
+    </div>
+
+    <!-- GitHub Tab -->
+    <div id="tab-github" class="github-tab">
+      <div>
+        <div class="gh-label">GitHub File URL</div>
+        <div class="gh-input-row">
+          <input type="text" id="ghUrl" placeholder="https://github.com/user/repo/blob/main/file.js"/>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:'Fira Code',monospace;">Example: github.com/Aditya30112008/my-first-ai-chatbot/blob/main/index.html</div>
+      </div>
+      <button onclick="fetchGitHub()" id="ghBtn" style="width:100%;">🐙 Fetch & Review Code</button>
+      <div id="ghStatus" style="font-size:11px;color:var(--text3);font-family:'Fira Code',monospace;display:none;"></div>
+      <div style="background:var(--s2);border-radius:var(--r);border:1px solid var(--border);padding:14px;">
+        <div class="gh-label" style="margin-bottom:8px;">How it works</div>
+        <div style="font-size:12px;color:var(--text3);line-height:1.7;">
+          1. GitHub file URL paste karo<br/>
+          2. Raw code automatically fetch hoga<br/>
+          3. AI poora code analyze karega<br/>
+          4. Bugs, optimizations, security issues milenge
+        </div>
+      </div>
+    </div>
+
+    <!-- Paste Tab -->
+    <div id="tab-paste" style="display:none;" class="code-tab">
+      <div>
+        <div class="gh-label">Language</div>
+        <select id="langSelect">
+          <option value="auto">Auto Detect</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="python">Python</option>
+          <option value="react">React/JSX</option>
+          <option value="html">HTML/CSS</option>
+          <option value="java">Java</option>
+          <option value="cpp">C/C++</option>
+          <option value="go">Go</option>
+          <option value="rust">Rust</option>
+          <option value="sql">SQL</option>
+        </select>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;">
+        <div class="gh-label">Your Code</div>
+        <textarea id="codeInput" class="code-textarea" placeholder="// Yahan apna code paste karo...&#10;function example() {&#10;  // AI review karega!&#10;}"></textarea>
+      </div>
+      <button onclick="reviewPastedCode()" id="reviewBtn">🔍 Review Code</button>
+    </div>
+
+    <!-- API Key Section -->
+    <div class="api-section">
+      <div class="gh-label" style="margin-bottom:8px;">Groq API Key</div>
+      <div style="display:flex;gap:8px;">
+        <input type="password" id="apiKey" placeholder="gsk_..."/>
+        <button onclick="saveApiKey()" style="padding:10px 14px;font-size:12px;">Save</button>
+      </div>
+      <div id="apiHint" style="font-size:11px;color:var(--text3);margin-top:6px;">Key browser mein safe rahegi.</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="review-header">
+      <div>
+        <div class="review-title">Review Results</div>
+        <div class="review-meta" id="reviewMeta">Waiting for code...</div>
+      </div>
+      <div class="score-badges" id="scoreBadges"></div>
+    </div>
+
+    <div class="review-body" id="reviewBody">
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">Ready to Review!</div>
+        <div class="empty-sub">GitHub URL paste karo ya code directly daalo — AI turant review karega bugs, optimizations aur security issues ke liye.</div>
+      </div>
+    </div>
+
+    <div class="summary-bar" id="summaryBar" style="display:none;">
+      <div class="sum-stat"><div class="sum-dot" style="background:var(--red)"></div><span id="bugCount">0 Bugs</span></div>
+      <div class="sum-stat"><div class="sum-dot" style="background:var(--yellow)"></div><span id="optCount">0 Optimizations</span></div>
+      <div class="sum-stat"><div class="sum-dot" style="background:var(--blue)"></div><span id="sugCount">0 Suggestions</span></div>
+      <div class="sum-stat"><div class="sum-dot" style="background:var(--purple)"></div><span id="secCount">0 Security</span></div>
+      <div class="sum-stat"><div class="sum-dot" style="background:var(--green)"></div><span id="goodCount">0 Good Parts</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let apiKey = '';
+
+// ── API KEY ──
+function saveApiKey() {
+  const v = document.getElementById('apiKey').value.trim();
+  const h = document.getElementById('apiHint');
+  if (!v.startsWith('gsk_')) { h.textContent='❌ Invalid! gsk_ se start honi chahiye.'; h.style.color='var(--red)'; return; }
+  apiKey = v;
+  h.textContent = '✓ Connected! Ab code review karo.'; h.style.color='var(--green)';
+  document.getElementById('hbDot').classList.add('on');
+  document.getElementById('hbText').textContent = 'connected';
+  document.getElementById('apiKey').value = '•'.repeat(20);
+}
+
+// ── TABS ──
+function switchTab(tab, el) {
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-github').style.display = tab==='github' ? 'flex' : 'none';
+  document.getElementById('tab-paste').style.display = tab==='paste' ? 'flex' : 'none';
+}
+
+// ── GITHUB FETCH ──
+async function fetchGitHub() {
+  if (!apiKey) { alert('Pehle API key save karo!'); return; }
+  let url = document.getElementById('ghUrl').value.trim();
+  if (!url) { alert('GitHub URL daalo!'); return; }
+
+  // Convert github.com URL to raw.githubusercontent.com
+  url = url
+    .replace('https://github.com/', 'https://raw.githubusercontent.com/')
+    .replace('/blob/', '/');
+
+  const status = document.getElementById('ghStatus');
+  const btn = document.getElementById('ghBtn');
+  status.style.display = 'block';
+  status.textContent = '⏳ Fetching code from GitHub...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('File nahi mili! URL check karo.');
+    const code = await res.text();
+    status.textContent = '✅ Code fetch ho gaya (' + code.split('\n').length + ' lines) — Reviewing...';
+    await runReview(code, url.split('/').pop());
+  } catch(e) {
+    status.textContent = '❌ Error: ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+}
+
+// ── PASTE REVIEW ──
+async function reviewPastedCode() {
+  if (!apiKey) { alert('Pehle API key save karo!'); return; }
+  const code = document.getElementById('codeInput').value.trim();
+  if (!code) { alert('Pehle code paste karo!'); return; }
+  const lang = document.getElementById('langSelect').value;
+  document.getElementById('reviewBtn').disabled = true;
+  await runReview(code, lang==='auto' ? 'code' : lang);
+  document.getElementById('reviewBtn').disabled = false;
+}
+
+// ── MAIN REVIEW ──
+async function runReview(code, filename) {
+  showLoading();
+
+  const prompt = `You are an expert code reviewer. Analyze this code thoroughly and respond ONLY with a valid JSON object — no markdown, no backticks, no explanation outside JSON.
+
+Code filename/language: ${filename}
+
+Code to review:
+\`\`\`
+${code.substring(0, 4000)}
+\`\`\`
+
+Respond with this exact JSON structure:
+{
+  "score": <number 0-100>,
+  "language": "<detected language>",
+  "summary": "<2 sentence overall summary in Hinglish>",
+  "bugs": [{"type":"bug","message":"<issue>","line":"<line hint>","fix":"<suggested fix code>"}],
+  "optimizations": [{"type":"optimize","message":"<what to improve>","line":"<hint>","fix":"<better code>"}],
+  "security": [{"type":"security","message":"<security issue>","line":"<hint>","fix":"<fix>"}],
+  "suggestions": [{"type":"suggest","message":"<improvement idea>","line":"<hint>","fix":"<example>"}],
+  "goodParts": [{"type":"good","message":"<what is done well>","line":""}]
+}
+
+Rules:
+- bugs: actual errors that will break code
+- optimizations: performance/readability improvements  
+- security: XSS, injection, exposed keys etc
+- suggestions: best practices, modern patterns
+- goodParts: genuinely good code patterns
+- Each array can have 0-5 items
+- fix field: short code snippet (max 2 lines)
+- message: clear, helpful, in English or Hinglish`;
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2000,
+        temperature: 0.3
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+
+    let text = data.choices[0].message.content;
+    // Strip markdown if present
+    text = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const review = JSON.parse(text);
+    renderReview(review, filename);
+  } catch(e) {
+    showError('Review failed: ' + e.message + '\n\nTip: llama-3.3-70b-versatile model use ho raha hai. API key check karo.');
+  }
+}
+
+// ── RENDER REVIEW ──
+function renderReview(r, filename) {
+  const body = document.getElementById('reviewBody');
+  document.getElementById('reviewMeta').textContent = filename + ' · ' + (r.language||'Unknown');
+  document.getElementById('summaryBar').style.display = 'flex';
+
+  // Score color
+  const scoreColor = r.score>=80 ? 'var(--green)' : r.score>=60 ? 'var(--yellow)' : 'var(--red)';
+  const scoreLabel = r.score>=80 ? 'Excellent' : r.score>=60 ? 'Good' : r.score>=40 ? 'Needs Work' : 'Critical';
+
+  // Badges
+  const badges = document.getElementById('scoreBadges');
+  badges.innerHTML = `
+    <span class="score-badge ${r.score>=80?'good':r.score>=60?'warn':'bad'}">${r.score}/100</span>
+    <span class="score-badge info">${r.language||'?'}</span>
+  `;
+
+  // Stats
+  document.getElementById('bugCount').textContent = (r.bugs||[]).length + ' Bugs';
+  document.getElementById('optCount').textContent = (r.optimizations||[]).length + ' Optimizations';
+  document.getElementById('sugCount').textContent = (r.suggestions||[]).length + ' Suggestions';
+  document.getElementById('secCount').textContent = (r.security||[]).length + ' Security';
+  document.getElementById('goodCount').textContent = (r.goodParts||[]).length + ' Good Parts';
+
+  // Build HTML
+  let html = '';
+
+  // Score ring
+  const circumference = 2 * Math.PI * 22;
+  const dash = (r.score/100) * circumference;
+  html += `
+    <div class="score-ring-wrap">
+      <div class="score-ring">
+        <svg width="56" height="56" viewBox="0 0 56 56">
+          <circle cx="28" cy="28" r="22" fill="none" stroke="var(--s3)" stroke-width="4"/>
+          <circle cx="28" cy="28" r="22" fill="none" stroke="${scoreColor}" stroke-width="4" stroke-dasharray="${dash} ${circumference}" stroke-linecap="round"/>
+        </svg>
+        <div class="score-ring-num" style="color:${scoreColor}">${r.score}</div>
+      </div>
+      <div class="score-ring-info">
+        <div class="score-ring-title">${scoreLabel} Code Quality</div>
+        <div class="score-ring-sub">${r.summary||'Review complete.'}</div>
+      </div>
+    </div>`;
+
+  // Bugs
+  if ((r.bugs||[]).length > 0) {
+    html += `<div class="review-section"><div class="rs-title"><span class="rs-icon">🐛</span> Bugs Found (${r.bugs.length})</div>`;
+    r.bugs.forEach(i => html += issueCard(i));
+    html += '</div>';
+  }
+
+  // Security
+  if ((r.security||[]).length > 0) {
+    html += `<div class="review-section"><div class="rs-title"><span class="rs-icon">🔒</span> Security Issues (${r.security.length})</div>`;
+    r.security.forEach(i => html += issueCard(i));
+    html += '</div>';
+  }
+
+  // Optimizations
+  if ((r.optimizations||[]).length > 0) {
+    html += `<div class="review-section"><div class="rs-title"><span class="rs-icon">⚡</span> Optimizations (${r.optimizations.length})</div>`;
+    r.optimizations.forEach(i => html += issueCard(i));
+    html += '</div>';
+  }
+
+  // Suggestions
+  if ((r.suggestions||[]).length > 0) {
+    html += `<div class="review-section"><div class="rs-title"><span class="rs-icon">💡</span> Suggestions (${r.suggestions.length})</div>`;
+    r.suggestions.forEach(i => html += issueCard(i));
+    html += '</div>';
+  }
+
+  // Good parts
+  if ((r.goodParts||[]).length > 0) {
+    html += `<div class="review-section"><div class="rs-title"><span class="rs-icon">✅</span> Good Parts (${r.goodParts.length})</div>`;
+    r.goodParts.forEach(i => html += issueCard(i));
+    html += '</div>';
+  }
+
+  if (!html.includes('review-section')) {
+    html += '<div style="font-size:13px;color:var(--text3);text-align:center;padding:20px;">No specific issues found — great code!</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function issueCard(item) {
+  return `
+    <div class="issue-card ${item.type}">
+      <div class="issue-type">${item.type}</div>
+      <div class="issue-msg">${item.message}</div>
+      ${item.line ? `<div class="issue-line">📍 ${item.line}</div>` : ''}
+      ${item.fix ? `<div class="issue-fix">💡 ${item.fix}</div>` : ''}
+    </div>`;
+}
+
+// ── LOADING & ERROR ──
+function showLoading() {
+  document.getElementById('reviewBody').innerHTML = `
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">AI code review kar raha hai...</div>
+      <div class="loading-steps">
+        <div class="ls done">✓ Code received</div>
+        <div class="ls active">⟳ Analyzing bugs & issues</div>
+        <div class="ls">○ Checking security</div>
+        <div class="ls">○ Finding optimizations</div>
+      </div>
+    </div>`;
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('scoreBadges').innerHTML = '';
+  document.getElementById('reviewMeta').textContent = 'Analyzing...';
+
+  // Animate loading steps
+  setTimeout(()=>{
+    const steps = document.querySelectorAll('.ls');
+    if(steps[1]) { steps[1].classList.remove('active'); steps[1].classList.add('done'); }
+    if(steps[2]) steps[2].classList.add('active');
+  }, 1500);
+  setTimeout(()=>{
+    const steps = document.querySelectorAll('.ls');
+    if(steps[2]) { steps[2].classList.remove('active'); steps[2].classList.add('done'); }
+    if(steps[3]) steps[3].classList.add('active');
+  }, 3000);
+}
+
+function showError(msg) {
+  document.getElementById('reviewBody').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">❌</div>
+      <div class="empty-title">Review Failed</div>
+      <div class="empty-sub" style="white-space:pre-wrap;">${msg}</div>
+    </div>`;
+}
+</script>
+</body>
+</html>
