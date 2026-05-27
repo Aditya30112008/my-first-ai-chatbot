@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Workflow Dashboard — Portfolio Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f12;--surface:#161a20;--surface2:#1e2329;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8eaed;--text2:#8b9098;--text3:#555c66;
+  --accent:#4ade80;--accent-dim:rgba(74,222,128,0.12);
+  --user-bg:#1a2f22;--user-color:#86efac;
+  --danger:#f87171;--warn:#fbbf24;--info:#60a5fa;
+  --purple:#a78bfa;--radius:16px;--radius-sm:8px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(74,222,128,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* ── NAV ── */
+.nav{position:sticky;top:0;z-index:100;background:rgba(13,15,18,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:12px 24px;}
+.nav-logo{font-size:18px;font-weight:600;color:var(--text);}
+.nav-logo span{color:var(--accent);}
+.nav-tabs{display:flex;gap:4px;margin-left:auto;}
+.nav-tab{background:transparent;border:1px solid transparent;border-radius:8px;color:var(--text3);font-size:13px;padding:6px 14px;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;}
+.nav-tab:hover{color:var(--text2);border-color:var(--border2);}
+.nav-tab.active{background:var(--accent-dim);border-color:rgba(74,222,128,0.3);color:var(--accent);}
+
+/* ── PAGES ── */
+.page{display:none;padding:24px;max-width:900px;margin:0 auto;position:relative;z-index:1;}
+.page.active{display:block;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.card-title{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:14px;}
+
+/* ── STAT GRID ── */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;}
+.stat-val{font-size:28px;font-weight:600;color:var(--text);font-family:'JetBrains Mono',monospace;}
+.stat-label{font-size:11px;color:var(--text3);margin-top:4px;}
+.stat-card.green .stat-val{color:var(--accent);}
+.stat-card.red .stat-val{color:var(--danger);}
+.stat-card.blue .stat-val{color:var(--info);}
+.stat-card.purple .stat-val{color:var(--purple);}
+
+/* ── BAR CHART ── */
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.bar-label{font-size:12px;color:var(--text2);width:120px;flex-shrink:0;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;background:var(--accent);transition:width 0.8s ease;}
+.bar-fill.red{background:var(--danger);}
+.bar-fill.blue{background:var(--info);}
+.bar-count{font-size:11px;color:var(--text3);width:28px;text-align:right;font-family:'JetBrains Mono',monospace;}
+
+/* ── LOG TABLE ── */
+.log-table{width:100%;border-collapse:collapse;}
+.log-table th{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;font-family:'JetBrains Mono',monospace;}
+.log-table td{font-size:12px;color:var(--text2);padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+.log-table tr:last-child td{border-bottom:none;}
+.log-table tr:hover td{background:var(--surface2);}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'JetBrains Mono',monospace;}
+.badge.user{background:var(--accent-dim);color:var(--accent);}
+.badge.bot{background:rgba(96,165,250,0.1);color:var(--info);}
+.badge.escalation{background:rgba(248,113,113,0.1);color:var(--danger);}
+.badge.faq{background:rgba(167,139,250,0.1);color:var(--purple);}
+
+/* ── CHATBOT PAGE ── */
+.chat-layout{display:grid;grid-template-columns:1fr 280px;gap:16px;align-items:start;}
+@media(max-width:700px){.chat-layout{grid-template-columns:1fr;}}
+
+.chat-window{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;height:520px;}
+.chat-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);}
+.chat-info{display:flex;align-items:center;gap:8px;}
+.chat-avatar{width:28px;height:28px;border-radius:8px;background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);display:flex;align-items:center;justify-content:center;font-size:13px;}
+.chat-name{font-size:13px;font-weight:500;}
+.chat-sub{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+.status-pill{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:all 0.3s;}
+.sdot.on{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+.memory-bar{padding:6px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.memory-bar span{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+
+.chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+.msg{display:flex;gap:8px;animation:msgIn 0.25s ease both;}
+.msg.user{flex-direction:row-reverse;}
+.av{width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:2px;}
+.av.ai{background:var(--accent-dim);border:1px solid rgba(74,222,128,0.2);}
+.av.usr{background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.2);font-size:10px;}
+.bubble{max-width:78%;padding:9px 13px;border-radius:4px 12px 12px 12px;font-size:13px;line-height:1.6;color:var(--text);background:var(--surface2);border:1px solid var(--border);}
+.msg.user .bubble{border-radius:12px 4px 12px 12px;background:var(--user-bg);border-color:rgba(74,222,128,0.15);color:var(--user-color);}
+.bubble.err{color:var(--danger);border-color:rgba(248,113,113,0.2);}
+.typing{display:flex;gap:4px;align-items:center;padding:4px 0;}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--text3);animation:blink 1.2s infinite;}
+.typing span:nth-child(2){animation-delay:0.2s;}
+.typing span:nth-child(3){animation-delay:0.4s;}
+.sys-note{text-align:center;font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;padding:2px 0;}
+
+.quick-btns{padding:8px 14px 0;display:flex;gap:6px;flex-wrap:wrap;}
+.q-btn{font-size:11px;padding:4px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);color:var(--text3);cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;}
+.q-btn:hover{color:var(--text);border-color:var(--border2);}
+
+.chat-input-row{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;}
+input[type=text],input[type=password]{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;transition:border-color 0.2s;width:100%;}
+input:focus{border-color:rgba(74,222,128,0.4);}
+input::placeholder{color:var(--text3);}
+button{background:var(--accent-dim);border:1px solid rgba(74,222,128,0.3);border-radius:var(--radius-sm);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:9px 16px;cursor:pointer;white-space:nowrap;transition:all 0.2s;}
+button:hover{background:rgba(74,222,128,0.2);}
+button:disabled{opacity:0.4;cursor:not-allowed;}
+.send-btn{width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:9px;}
+
+/* sidebar */
+.sidebar{display:flex;flex-direction:column;gap:12px;}
+.side-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.side-title{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;}
+.key-row{display:flex;gap:6px;}
+.model-chips{display:flex;flex-direction:column;gap:4px;}
+.m-chip{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:11px;font-family:'JetBrains Mono',monospace;padding:6px 10px;cursor:pointer;transition:all 0.2s;text-align:left;}
+.m-chip:hover{border-color:var(--border2);color:var(--text2);}
+.m-chip.active{background:var(--accent-dim);border-color:rgba(74,222,128,0.3);color:var(--accent);}
+
+/* escalation box */
+.esc-box{background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.25);border-radius:10px;padding:12px 14px;animation:msgIn 0.3s ease both;}
+.esc-box p{font-size:12px;color:var(--danger);margin-bottom:8px;}
+.esc-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.esc-email{font-size:11px;padding:5px 12px;border-radius:20px;background:rgba(248,113,113,0.12);border-color:rgba(248,113,113,0.35);color:var(--danger);}
+.esc-wa{font-size:11px;padding:5px 12px;border-radius:20px;background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.3);color:var(--accent);}
+.esc-dis{font-size:11px;padding:5px 12px;border-radius:20px;background:transparent;border-color:var(--border2);color:var(--text3);}
+
+/* timeline */
+.timeline{display:flex;flex-direction:column;gap:8px;}
+.tl-item{display:flex;gap:10px;align-items:flex-start;}
+.tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.tl-dot.green{background:var(--accent);}
+.tl-dot.red{background:var(--danger);}
+.tl-dot.blue{background:var(--info);}
+.tl-dot.purple{background:var(--purple);}
+.tl-content{flex:1;}
+.tl-title{font-size:12px;color:var(--text);}
+.tl-time{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+
+@keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes blink{0%,80%,100%{opacity:0.2}40%{opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">AI<span>Bot</span> Dashboard</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('chatbot')">💬 Chatbot</button>
+    <button class="nav-tab" onclick="showPage('analytics')">📊 Analytics</button>
+    <button class="nav-tab" onclick="showPage('logs')">📋 Logs</button>
+    <button class="nav-tab" onclick="showPage('escalations')">🚨 Escalations</button>
+  </div>
+</nav>
+
+<!-- ═══════════════ PAGE: CHATBOT ═══════════════ -->
+<div class="page active" id="page-chatbot">
+  <div class="chat-layout">
+
+    <!-- Chat Window -->
+    <div>
+      <div class="chat-window">
+        <div class="chat-topbar">
+          <div class="chat-info">
+            <div class="chat-avatar">🤖</div>
+            <div>
+              <div class="chat-name">Portfolio Assistant</div>
+              <div class="chat-sub">groq · llama3.1</div>
+            </div>
+          </div>
+          <div class="status-pill">
+            <div class="sdot" id="sdot"></div>
+            <span id="stext">offline</span>
+          </div>
+        </div>
+        <div class="memory-bar">
+          <span id="memLabel">🧠 0 messages saved</span>
+          <button onclick="clearMemory()" style="font-size:10px;padding:3px 10px;color:var(--danger);border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.07);">🗑 Clear</button>
+        </div>
+        <div class="chat-messages" id="chatBox">
+          <div class="msg">
+            <div class="av ai">🤖</div>
+            <div class="bubble">Namaste! Main Aditya ka portfolio assistant hoon. API key connect karo aur kuch bhi pucho! 🙏</div>
+          </div>
+        </div>
+        <div class="quick-btns">
+          <button class="q-btn" onclick="quickAsk('What are your skills?')">💻 Skills</button>
+          <button class="q-btn" onclick="quickAsk('Tell me about your projects')">🚀 Projects</button>
+          <button class="q-btn" onclick="quickAsk('How can I contact you?')">📬 Contact</button>
+          <button class="q-btn" onclick="quickAsk('Are you available for work?')">💼 Hire Me</button>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="msgInput" placeholder="Kuch bhi pucho..." onkeydown="if(event.key==='Enter')sendMsg()"/>
+          <button class="send-btn" onclick="sendMsg()" id="sendBtn">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="side-card">
+        <div class="side-title">API Key</div>
+        <div class="key-row">
+          <input type="password" id="apiKeyInput" placeholder="gsk_..."/>
+          <button onclick="saveKey()" style="padding:9px 12px;font-size:12px;">Connect</button>
+        </div>
+        <div id="keyHint" style="font-size:11px;color:var(--text3);margin-top:6px;">Key browser mein safe rahegi.</div>
+      </div>
+      <div class="side-card">
+        <div class="side-title">Model</div>
+        <div class="model-chips">
+          <button class="m-chip active" onclick="selModel(this,'llama-3.1-8b-instant')">llama-3.1-8b-instant ⚡</button>
+          <button class="m-chip" onclick="selModel(this,'llama-3.3-70b-versatile')">llama-3.3-70b-versatile 🧠</button>
+          <button class="m-chip" onclick="selModel(this,'gemma2-9b-it')">gemma2-9b-it 💎</button>
+        </div>
+      </div>
+      <div class="side-card">
+        <div class="side-title">Live Stats</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text3)">Total Messages</span><span id="ls-total" style="color:var(--accent);font-family:'JetBrains Mono',monospace;">0</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text3)">FAQ Clicks</span><span id="ls-faq" style="color:var(--info);font-family:'JetBrains Mono',monospace;">0</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text3)">Escalations</span><span id="ls-esc" style="color:var(--danger);font-family:'JetBrains Mono',monospace;">0</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text3)">Session Time</span><span id="ls-time" style="color:var(--purple);font-family:'JetBrains Mono',monospace;">0m</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: ANALYTICS ═══════════════ -->
+<div class="page" id="page-analytics">
+  <div class="stat-grid">
+    <div class="stat-card green"><div class="stat-val" id="an-total">0</div><div class="stat-label">Total Messages</div></div>
+    <div class="stat-card blue"><div class="stat-val" id="an-faq">0</div><div class="stat-label">FAQ Button Clicks</div></div>
+    <div class="stat-card red"><div class="stat-val" id="an-esc">0</div><div class="stat-label">Escalations Triggered</div></div>
+    <div class="stat-card purple"><div class="stat-val" id="an-sessions">1</div><div class="stat-label">Sessions</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">FAQ Button Usage</div>
+    <div id="faqChart"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Message Activity (Last 10 msgs)</div>
+    <div id="actChart"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Escalation Reasons</div>
+    <div id="escChart"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: LOGS ═══════════════ -->
+<div class="page" id="page-logs">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="card-title" style="margin-bottom:0;">Chat Logs</div>
+      <button onclick="exportLogs()" style="font-size:11px;padding:5px 12px;">⬇ Export CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="log-table">
+        <thead><tr><th>#</th><th>Time</th><th>Role</th><th>Message</th><th>Type</th></tr></thead>
+        <tbody id="logTableBody"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">No logs yet — start chatting!</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE: ESCALATIONS ═══════════════ -->
+<div class="page" id="page-escalations">
+  <div class="stat-grid">
+    <div class="stat-card red"><div class="stat-val" id="esc-total">0</div><div class="stat-label">Total Escalations</div></div>
+    <div class="stat-card blue"><div class="stat-val" id="esc-email">0</div><div class="stat-label">Email Clicks</div></div>
+    <div class="stat-card green"><div class="stat-val" id="esc-wa">0</div><div class="stat-label">WhatsApp Clicks</div></div>
+    <div class="stat-card purple"><div class="stat-val" id="esc-rate">0%</div><div class="stat-label">Escalation Rate</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Escalation Timeline</div>
+    <div class="timeline" id="escTimeline">
+      <div style="font-size:12px;color:var(--text3);text-align:center;padding:16px;">No escalations yet!</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Trigger Keywords Hit</div>
+    <div id="triggerChart"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════ CONFIG ═══════════════
+const PORTFOLIO_FAQ = `
+You are an AI assistant for Aditya's personal portfolio website.
+You know everything about Aditya and can have normal AI conversations too.
+
+=== ADITYA KI INFO ===
+NAME: Aditya | GitHub: Aditya30112008
+GOAL: Staff Product Engineer
+
+SKILLS: HTML, CSS, JavaScript, React, Groq API, LLaMA 3.1, Prompt Engineering, GitHub
+
+PROJECTS:
+1. AI Workflow Dashboard Chatbot — Groq API + LLaMA 3.1, localStorage memory, analytics dashboard, escalation system, FAQ buttons
+   Live: https://Aditya30112008.github.io/my-first-ai-chatbot
+
+CONTACT: GitHub: github.com/Aditya30112008
+AVAILABLE FOR: Internships, Freelance, Full-time roles
+
+RULES: Answer portfolio questions from above. Normal questions → answer like helpful AI. Same language as user.`;
+
+const ESC_CONFIG = {
+  email: 'your@email.com',
+  whatsapp: '919999999999',
+  triggers: ['human','agent','support','help me','not working','speak to someone','contact','escalate','frustrated','angry','useless','gussa','banda chahiye','insaan se baat'],
+  botConfusion: ["i don't know","i'm not sure","i cannot","i don't have","mujhe nahi pata","pata nahi"]
+};
+
+// ═══════════════ STATE ═══════════════
+const STORAGE_KEY = 'groq_dashboard_v1';
+let apiKey = '', selectedModel = 'llama-3.1-8b-instant', isLoading = false;
+let messages = [], logs = [], escalations = [], faqClicks = {Skills:0,Projects:0,Contact:0,'Hire Me':0};
+let emailClicks = 0, waClicks = 0;
+let sessionStart = Date.now();
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    messages = s.messages || [];
+    logs = s.logs || [];
+    escalations = s.escalations || [];
+    faqClicks = s.faqClicks || {Skills:0,Projects:0,Contact:0,'Hire Me':0};
+    emailClicks = s.emailClicks || 0;
+    waClicks = s.waClicks || 0;
+    if (messages.length > 0) {
+      const box = document.getElementById('chatBox');
+      messages.forEach(m => renderBubble(m.role, m.content));
+      addSysNote('✅ ' + messages.length + ' messages memory se load hui!');
+    }
+    updateAll();
+  } catch(e) { localStorage.removeItem(STORAGE_KEY); }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({messages, logs, escalations, faqClicks, emailClicks, waClicks}));
+  updateAll();
+}
+
+// ═══════════════ NAV ═══════════════
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(x => x.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  event.target.classList.add('active');
+  updateAll();
+}
+
+// ═══════════════ CHAT ═══════════════
+function saveKey() {
+  const v = document.getElementById('apiKeyInput').value.trim();
+  const h = document.getElementById('keyHint');
+  if (!v.startsWith('gsk_')) { h.textContent='❌ Invalid! gsk_ se start honi chahiye.'; h.style.color='var(--danger)'; return; }
+  apiKey = v;
+  h.textContent = '✓ Connected!'; h.style.color = 'var(--accent)';
+  document.getElementById('sdot').classList.add('on');
+  document.getElementById('stext').textContent = 'online';
+  document.getElementById('apiKeyInput').value = '•'.repeat(20);
+}
+
+function selModel(el, m) {
+  document.querySelectorAll('.m-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active'); selectedModel = m;
+}
+
+function renderBubble(role, text, isErr=false) {
+  const box = document.getElementById('chatBox');
+  const isUser = role==='user';
+  const d = document.createElement('div'); d.className='msg'+(isUser?' user':'');
+  const av = document.createElement('div'); av.className='av '+(isUser?'usr':'ai'); av.textContent=isUser?'You':'🤖';
+  const b = document.createElement('div'); b.className='bubble'+(isErr?' err':''); b.textContent=text;
+  d.appendChild(av); d.appendChild(b); box.appendChild(d);
+  box.scrollTop=box.scrollHeight; return b;
+}
+
+function addSysNote(t) {
+  const box=document.getElementById('chatBox');
+  const d=document.createElement('div'); d.className='sys-note'; d.textContent=t;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+
+function addTyping() {
+  const box=document.getElementById('chatBox');
+  const d=document.createElement('div'); d.className='msg'; d.id='typing';
+  const av=document.createElement('div'); av.className='av ai'; av.textContent='🤖';
+  const b=document.createElement('div'); b.className='bubble';
+  b.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  d.appendChild(av); d.appendChild(b); box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+
+function quickAsk(q) {
+  const key = q.includes('skill')?'Skills':q.includes('project')?'Projects':q.includes('contact')?'Contact':'Hire Me';
+  faqClicks[key] = (faqClicks[key]||0)+1;
+  document.getElementById('msgInput').value=q; sendMsg();
+}
+
+async function sendMsg() {
+  if (!apiKey) { alert('Pehle API key connect karo!'); return; }
+  if (isLoading) return;
+  const inp=document.getElementById('msgInput');
+  const text=inp.value.trim(); if (!text) return;
+  inp.value=''; isLoading=true;
+  document.getElementById('sendBtn').disabled=true;
+  renderBubble('user', text);
+  messages.push({role:'user',content:text});
+  logs.push({time:new Date().toLocaleTimeString(),role:'user',msg:text.substring(0,60),type:'user'});
+  addTyping();
+  try {
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${apiKey}`,'Content-Type':'application/json'},
+      body:JSON.stringify({model:selectedModel,messages:[{role:'system',content:PORTFOLIO_FAQ},...messages],max_tokens:1024,temperature:0.7})
+    });
+    const data=await res.json();
+    document.getElementById('typing')?.remove();
+    if (data.error) throw new Error(data.error.message);
+    const reply=data.choices[0].message.content;
+    renderBubble('assistant',reply);
+    messages.push({role:'assistant',content:reply});
+    logs.push({time:new Date().toLocaleTimeString(),role:'bot',msg:reply.substring(0,60),type:'bot'});
+    checkEscalation(text, reply);
+    saveState();
+  } catch(e) {
+    document.getElementById('typing')?.remove();
+    renderBubble('assistant','Error: '+e.message, true);
+  }
+  isLoading=false; document.getElementById('sendBtn').disabled=false;
+  document.getElementById('msgInput').focus();
+}
+
+function clearMemory() {
+  if (!confirm('Saari chat history delete karni hai?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  messages=[]; logs=[]; escalations=[]; faqClicks={Skills:0,Projects:0,Contact:0,'Hire Me':0};
+  emailClicks=0; waClicks=0;
+  document.getElementById('chatBox').innerHTML='';
+  addSysNote('🗑 Memory clear! Naya conversation shuru karo.');
+  updateAll();
+}
+
+// ═══════════════ ESCALATION ═══════════════
+function checkEscalation(userText, botReply) {
+  const ul=userText.toLowerCase(), bl=botReply.toLowerCase();
+  const userTrig=ESC_CONFIG.triggers.some(p=>ul.includes(p));
+  const botConf=ESC_CONFIG.botConfusion.some(p=>bl.includes(p));
+  if (userTrig||botConf) {
+    const reason=userTrig?'User requested human':'Bot was not confident';
+    escalations.push({time:new Date().toLocaleTimeString(),msg:userText.substring(0,50),reason});
+    showEscBox(userTrig?'user':'bot');
+    saveState();
+  }
+}
+
+function showEscBox(reason) {
+  document.getElementById('escBox')?.remove();
+  const box=document.getElementById('chatBox');
+  const msg=reason==='user'?'🙋 Lagta hai tumhe kisi insaan se baat karni hai!':'🤔 Bot confident nahi hai — human se connect karein?';
+  const d=document.createElement('div'); d.id='escBox'; d.className='esc-box';
+  d.innerHTML=`<p>${msg}</p><div class="esc-btns"><button class="esc-email" onclick="escEmail()">📧 Email</button><button class="esc-wa" onclick="escWA()">💬 WhatsApp</button><button class="esc-dis" onclick="document.getElementById('escBox').remove()">✕</button></div>`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+
+function escEmail() {
+  emailClicks++;
+  const last=messages.length>0?messages[messages.length-2]?.content||'':'';
+  window.open(`mailto:${ESC_CONFIG.email}?subject=Portfolio%20Help&body=Hi%20Aditya%2C%20my%20question%3A%20${encodeURIComponent(last)}`);
+  addSysNote('📧 Email app khul gayi!'); saveState();
+}
+function escWA() {
+  waClicks++;
+  const last=messages.length>0?messages[messages.length-2]?.content||'':'';
+  window.open(`https://wa.me/${ESC_CONFIG.whatsapp}?text=${encodeURIComponent('Hi Aditya! Portfolio chatbot se aa raha hoon. Sawaal: '+last)}`, '_blank');
+  addSysNote('💬 WhatsApp khul gaya!'); saveState();
+}
+
+// ═══════════════ UPDATE UI ═══════════════
+function updateAll() {
+  const total=messages.length;
+  const escCount=escalations.length;
+  const faqTotal=Object.values(faqClicks).reduce((a,b)=>a+b,0);
+  const mins=Math.floor((Date.now()-sessionStart)/60000);
+
+  // live sidebar
+  document.getElementById('ls-total').textContent=total;
+  document.getElementById('ls-faq').textContent=faqTotal;
+  document.getElementById('ls-esc').textContent=escCount;
+  document.getElementById('ls-time').textContent=mins+'m';
+  document.getElementById('memLabel').textContent='🧠 '+total+' messages saved';
+
+  // analytics
+  document.getElementById('an-total').textContent=total;
+  document.getElementById('an-faq').textContent=faqTotal;
+  document.getElementById('an-esc').textContent=escCount;
+
+  // escalations page
+  document.getElementById('esc-total').textContent=escCount;
+  document.getElementById('esc-email').textContent=emailClicks;
+  document.getElementById('esc-wa').textContent=waClicks;
+  document.getElementById('esc-rate').textContent=total>0?Math.round(escCount/Math.max(total/2,1)*100)+'%':'0%';
+
+  renderFaqChart(); renderLogTable(); renderEscTimeline(); renderTriggerChart(); renderActChart();
+}
+
+function barHTML(label, val, max, cls='') {
+  const pct=max>0?Math.round(val/max*100):0;
+  return `<div class="bar-row"><div class="bar-label">${label}</div><div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div><div class="bar-count">${val}</div></div>`;
+}
+
+function renderFaqChart() {
+  const el=document.getElementById('faqChart'); if(!el)return;
+  const max=Math.max(...Object.values(faqClicks),1);
+  el.innerHTML=Object.entries(faqClicks).map(([k,v])=>barHTML(k,v,max)).join('');
+}
+
+function renderActChart() {
+  const el=document.getElementById('actChart'); if(!el)return;
+  const last10=messages.slice(-10);
+  if(last10.length===0){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:10px">No messages yet</div>';return;}
+  const max=1;
+  el.innerHTML=last10.map((m,i)=>barHTML((m.role==='user'?'👤 ':' 🤖 ')+(m.content.substring(0,18)+'...'),1,1,m.role==='user'?'':'blue')).join('');
+}
+
+function renderEscTimeline() {
+  const el=document.getElementById('escTimeline'); if(!el)return;
+  if(escalations.length===0){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:16px">No escalations yet!</div>';return;}
+  el.innerHTML=escalations.slice(-8).reverse().map(e=>`
+    <div class="tl-item">
+      <div class="tl-dot red"></div>
+      <div class="tl-content">
+        <div class="tl-title">${e.msg}</div>
+        <div class="tl-time">${e.time} · ${e.reason}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderTriggerChart() {
+  const el=document.getElementById('triggerChart'); if(!el)return;
+  if(escalations.length===0){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:10px">No triggers yet</div>';return;}
+  const counts={};
+  escalations.forEach(e=>{const k=e.reason;counts[k]=(counts[k]||0)+1;});
+  const max=Math.max(...Object.values(counts),1);
+  el.innerHTML=Object.entries(counts).map(([k,v])=>barHTML(k,v,max,'red')).join('');
+}
+
+function renderLogTable() {
+  const el=document.getElementById('logTableBody'); if(!el)return;
+  if(logs.length===0){el.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">No logs yet — start chatting!</td></tr>';return;}
+  el.innerHTML=logs.slice(-30).reverse().map((l,i)=>`
+    <tr>
+      <td style="color:var(--text3)">${logs.length-i}</td>
+      <td style="font-family:'JetBrains Mono',monospace">${l.time}</td>
+      <td><span class="badge ${l.role==='user'?'user':'bot'}">${l.role}</span></td>
+      <td>${l.msg}${l.msg.length>=60?'…':''}</td>
+      <td><span class="badge ${l.type}">${l.type}</span></td>
+    </tr>`).join('');
+}
+
+function exportLogs() {
+  if(logs.length===0){alert('No logs to export!');return;}
+  const csv='Time,Role,Message,Type\n'+logs.map(l=>`"${l.time}","${l.role}","${l.msg}","${l.type}"`).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='chat-logs-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// Session timer
+setInterval(()=>{ document.getElementById('ls-time').textContent=Math.floor((Date.now()-sessionStart)/60000)+'m'; },30000);
+
+window.onload = loadState;
+</script>
+</body>
+</html>
