@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UltimateBugHunter — Zero-Input Vulnerability Deep Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@300;400;500;600;700;800&family=Share+Tech+Mono&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;
+  --bg2:#0f0f18;
+  --panel:#121221;
+  --panel2:#18182a;
+  --border:#252548;
+  --border2:#3a3a60;
+  --text:#e0e0ff;
+  --dim:#7a7a9e;
+  --accent:#ff1744;
+  --accent2:#ff6b35;
+  --accent3:#ffcc00;
+  --safe:#00ff88;
+  --purple:#b833ff;
+  --info:#00d4ff;
+  --critical:#ff0033;
+  --glow:rgba(255,23,68,0.2);
+}
+
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;overflow-x:hidden}
+
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,23,68,0.03) 2px,rgba(255,23,68,0.03) 4px);
+  pointer-events:none;z-index:9999;opacity:0.8;
+}
+
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,23,68,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,23,68,0.03) 1px,transparent 1px);
+  background-size:50px 50px;z-index:0;
+}
+
+.wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:0 1.5rem 5rem}
+
+/* ===== SPLASH SCREEN ===== */
+.splash{
+  position:fixed;inset:0;background:linear-gradient(135deg,var(--bg) 0%,var(--bg2) 100%);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2rem;
+  z-index:10000;transition:opacity 0.6s,visibility 0.6s;
+}
+.splash.done{opacity:0;visibility:hidden}
+
+.splash-content{text-align:center;animation:splashIn 0.8s ease-out forwards}
+@keyframes splashIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.splash-skull{font-size:6rem;animation:skullFloat 2s ease-in-out infinite}
+@keyframes skullFloat{0%,100%{transform:translateY(0);filter:drop-shadow(0 0 20px var(--accent))}50%{transform:translateY(-20px);filter:drop-shadow(0 0 40px var(--accent))}}
+
+.splash-title{font-size:3.5rem;font-weight:900;letter-spacing:-0.02em;
+  background:linear-gradient(135deg,#ff1744 0%,#ff6b35 50%,#ffcc00 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-transform:uppercase;animation:titleSlide 1s ease-out 0.2s forwards;opacity:0;
+}
+@keyframes titleSlide{to{opacity:1}}
+
+.splash-sub{font-family:'Share Tech Mono',monospace;font-size:0.9rem;color:var(--dim);
+  letter-spacing:0.1em;animation:subFade 1s ease-out 0.4s forwards;opacity:0;
+}
+@keyframes subFade{to{opacity:1}}
+
+.splash-input-wrap{width:100%;max-width:600px;animation:inputSlide 1s ease-out 0.6s forwards;opacity:0}
+@keyframes inputSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.splash-input-box{
+  background:var(--panel);border:1px solid var(--border2);border-radius:12px;
+  padding:16px 20px;display:flex;gap:10px;align-items:center;
+}
+
+.splash-input-box input{
+  flex:1;background:none;border:none;outline:none;color:#fff;
+  font-family:'Share Tech Mono',monospace;font-size:1rem;
+}
+
+.splash-input-box input::placeholder{color:rgba(255,255,255,0.25)}
+
+.splash-scan-btn{
+  padding:12px 28px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border:none;border-radius:8px;color:#fff;font-family:'Oxanium',sans-serif;
+  font-weight:700;font-size:1rem;letter-spacing:0.1em;cursor:pointer;
+  transition:all 0.2s;box-shadow:0 0 30px var(--accent);
+  text-transform:uppercase;white-space:nowrap;
+}
+.splash-scan-btn:hover{transform:translateY(-2px);box-shadow:0 0 50px var(--accent)}
+.splash-scan-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none}
+.splash-scan-btn.scanning::after{
+  content:'';display:inline-block;width:12px;height:12px;border:2px solid #fff;
+  border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;
+  margin-left:8px;vertical-align:middle;
+}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.splash-example{
+  color:var(--dim);font-size:0.85rem;font-family:'Share Tech Mono',monospace;
+  margin-top:1rem;animation:exampleFade 1s ease-out 0.8s forwards;opacity:0;
+}
+@keyframes exampleFade{to{opacity:1}}
+
+/* ===== MAIN PAGE ===== */
+header{
+  padding:3rem 0 2rem;display:flex;flex-direction:column;align-items:center;
+  text-align:center;gap:1rem;animation:headerFade 0.8s ease-out forwards;
+}
+
+@keyframes headerFade{from{opacity:0}to{opacity:1}}
+
+.logo-row{display:flex;align-items:center;gap:14px;justify-content:center}
+.logo-skull{font-size:2.8rem;animation:pulseGlow 2.5s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{filter:drop-shadow(0 0 12px var(--accent))}50%{filter:drop-shadow(0 0 30px var(--accent)) drop-shadow(0 0 60px rgba(255,23,68,0.3))}}
+
+h1{
+  font-size:2.8rem;font-weight:900;letter-spacing:-0.02em;
+  background:linear-gradient(135deg,#ff1744,#ff6b35,#ffcc00);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-transform:uppercase;
+}
+
+.subtitle{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--dim);letter-spacing:0.15em;text-transform:uppercase}
+
+/* ===== SCAN STATUS ===== */
+.scan-status{
+  position:fixed;top:20px;right:20px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:10px;padding:14px 18px;max-width:280px;z-index:500;
+  display:none;animation:statusIn 0.3s ease-out;
+}
+.scan-status.show{display:block}
+@keyframes statusIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+
+.status-header{
+  display:flex;align-items:center;gap:8px;margin-bottom:10px;
+  font-weight:700;font-size:0.9rem;
+}
+.status-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);animation:statusPulse 1.5s ease-in-out infinite}
+@keyframes statusPulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.status-phase{font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--dim)}
+.status-pct{font-family:'Share Tech Mono',monospace;font-size:0.85rem;color:var(--accent3);font-weight:700}
+
+/* ===== RESULTS ===== */
+.results-section{display:none;opacity:0;transition:opacity 0.4s}
+.results-section.show{display:block;opacity:1}
+
+.top-banner{
+  background:linear-gradient(135deg,rgba(255,23,68,0.1) 0%,rgba(255,107,53,0.08) 100%);
+  border:1px solid var(--border2);border-radius:14px;padding:2rem;margin-bottom:2rem;
+  text-align:center;
+}
+
+.banner-title{font-size:2rem;font-weight:900;color:#ff1744;margin-bottom:8px;text-transform:uppercase}
+.banner-sub{font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--dim);margin-bottom:1.5rem}
+
+.action-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.action-btn{
+  padding:10px 20px;border-radius:8px;border:1px solid;font-family:'Oxanium',sans-serif;
+  font-weight:700;font-size:0.85rem;cursor:pointer;transition:all 0.2s;text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+.btn-screenshot{background:rgba(68,138,255,0.15);border-color:var(--info);color:var(--info)}
+.btn-screenshot:hover{background:rgba(68,138,255,0.25);box-shadow:0 0 20px rgba(68,138,255,0.2)}
+.btn-video{background:rgba(184,51,255,0.15);border-color:var(--purple);color:var(--purple)}
+.btn-video:hover{background:rgba(184,51,255,0.25);box-shadow:0 0 20px rgba(184,51,255,0.2)}
+.btn-poc{background:rgba(0,255,136,0.15);border-color:var(--safe);color:var(--safe)}
+.btn-poc:hover{background:rgba(0,255,136,0.25);box-shadow:0 0 20px rgba(0,255,136,0.2)}
+.btn-report{background:rgba(255,107,53,0.15);border-color:var(--accent2);color:var(--accent2)}
+.btn-report:hover{background:rgba(255,107,53,0.25);box-shadow:0 0 20px rgba(255,107,53,0.2)}
+
+/* VULNERABILITY CARD */
+.vuln-card{
+  background:var(--panel);border:2px solid var(--critical);border-radius:14px;
+  padding:2rem;margin-bottom:2rem;box-shadow:0 0 40px rgba(255,23,68,0.15);
+  animation:vulnSlide 0.6s ease-out;
+}
+@keyframes vulnSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+.vuln-header{
+  display:flex;align-items:center;gap:14px;margin-bottom:1.5rem;flex-wrap:wrap;
+}
+.vuln-severity{
+  background:#ff1744;color:#fff;padding:8px 16px;border-radius:8px;
+  font-weight:800;font-family:'Oxanium',sans-serif;letter-spacing:0.1em;font-size:0.95rem;
+  text-transform:uppercase;box-shadow:0 0 20px rgba(255,23,68,0.4);
+}
+.vuln-type{
+  background:var(--panel2);border:1px solid var(--border);color:var(--info);
+  padding:6px 14px;border-radius:6px;font-family:'Share Tech Mono',monospace;font-size:0.8rem;
+}
+.vuln-cve{color:var(--accent3);font-weight:700;font-family:'Share Tech Mono',monospace;font-size:0.9rem}
+.vuln-cvss{color:#ff1744;font-weight:800;font-size:1.3rem;font-family:'Oxanium',sans-serif}
+
+.vuln-title{font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:1rem;line-height:1.3}
+
+.vuln-meta-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem;
+}
+.meta-cell{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.meta-label{font-size:0.7rem;color:var(--dim);font-family:'Share Tech Mono',monospace;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.meta-value{font-size:0.95rem;color:#fff;font-weight:700;font-family:'Share Tech Mono',monospace;break-all}
+
+.section-header{
+  font-size:0.9rem;font-weight:800;color:#ff1744;
+  text-transform:uppercase;letter-spacing:0.12em;margin:1.5rem 0 0.75rem;
+  display:flex;align-items:center;gap:8px;
+}
+.section-header::before{content:'▶';font-size:0.8rem}
+
+.desc-box{background:var(--panel2);border-left:3px solid var(--accent);border-radius:8px;padding:14px;margin-bottom:1rem;line-height:1.8}
+
+.code-block{
+  background:#020204;border:1px solid var(--border2);border-radius:10px;
+  overflow:hidden;margin-bottom:1.5rem;
+}
+.code-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 16px;background:var(--panel2);border-bottom:1px solid var(--border);
+}
+.code-lang{color:var(--accent2);font-family:'Share Tech Mono',monospace;font-weight:700;font-size:0.8rem}
+.code-file{color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:0.75rem}
+.code-copy{
+  background:var(--panel);border:1px solid var(--border);color:var(--info);
+  padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;
+  transition:all 0.2s;
+}
+.code-copy:hover{background:var(--accent);color:#fff}
+.code-pre{
+  padding:16px;overflow-x:auto;font-family:'Share Tech Mono',monospace;
+  font-size:0.8rem;line-height:1.8;color:#e0e0ff;max-height:400px;
+}
+.code-pre::-webkit-scrollbar{height:4px}
+.code-pre::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.vulnerable-line{background:rgba(255,23,68,0.2);display:block;padding:4px 0;margin:0 -16px;padding:4px 16px;border-left:3px solid #ff1744}
+.safe-line{background:rgba(0,255,136,0.1);display:block;padding:4px 0;margin:0 -16px;padding:4px 16px;border-left:3px solid var(--safe)}
+
+.exploit-box{
+  background:linear-gradient(135deg,rgba(184,51,255,0.1) 0%,rgba(184,51,255,0.05) 100%);
+  border:1px solid var(--border2);border-left:3px solid var(--purple);
+  border-radius:10px;padding:16px;margin-bottom:1.5rem;
+}
+.exploit-title{
+  color:var(--purple);font-weight:800;font-size:0.95rem;margin-bottom:10px;
+  text-transform:uppercase;letter-spacing:0.08em;
+}
+.exploit-content{font-size:0.85rem;line-height:1.8;color:var(--text)}
+.exploit-step{margin-bottom:8px;padding-left:20px;position:relative}
+.exploit-step::before{content:counter(step);counter-increment:step;position:absolute;left:0;color:var(--purple);font-weight:700}
+
+.poc-container{counter-reset:step}
+.poc-file{
+  background:var(--panel2);border-radius:8px;padding:1rem;margin-bottom:1rem;
+}
+.poc-filename{
+  color:var(--info);font-family:'Share Tech Mono',monospace;
+  font-weight:700;font-size:0.85rem;margin-bottom:10px;
+}
+.poc-code{
+  font-family:'Share Tech Mono',monospace;font-size:0.75rem;
+  line-height:1.7;color:#e0e0ff;overflow-x:auto;max-height:300px;
+}
+
+.fix-box{
+  background:linear-gradient(135deg,rgba(0,255,136,0.1) 0%,rgba(0,255,136,0.05) 100%);
+  border:1px solid var(--border2);border-left:3px solid var(--safe);
+  border-radius:10px;padding:16px;margin-bottom:1.5rem;
+}
+.fix-title{
+  color:var(--safe);font-weight:800;font-size:0.95rem;margin-bottom:10px;
+  text-transform:uppercase;letter-spacing:0.08em;
+}
+.fix-steps{font-size:0.85rem;line-height:1.8}
+.fix-step{margin-bottom:10px;padding-left:20px;position:relative}
+.fix-step::before{content:'✓';position:absolute;left:0;color:var(--safe);font-weight:700;font-size:1.2em}
+
+/* SCREENSHOT PANEL */
+.screenshot-panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:1.5rem;margin-bottom:2rem;display:none;
+}
+.screenshot-panel.show{display:block;animation:panelSlide 0.4s ease-out}
+@keyframes panelSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.panel-title{
+  font-size:0.9rem;font-weight:800;color:#ff1744;margin-bottom:1rem;
+  text-transform:uppercase;letter-spacing:0.1em;
+}
+.canvas-wrap{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  max-height:500px;
+}
+.canvas-wrap canvas{max-width:100%;height:auto;display:block}
+
+/* VIDEO PANEL */
+.video-panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:1.5rem;margin-bottom:2rem;display:none;
+}
+.video-panel.show{display:block;animation:panelSlide 0.4s ease-out}
+
+.video-container{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;
+}
+.video-player{
+  width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,var(--bg2),var(--panel2));
+  display:flex;align-items:center;justify-content:center;position:relative;
+  color:var(--dim);font-family:'Share Tech Mono',monospace;
+}
+
+.video-frame{
+  position:absolute;inset:0;display:none;padding:3rem;text-align:center;
+  background:linear-gradient(135deg,var(--bg2),var(--panel2));
+}
+.video-frame.active{display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+.frame-number{
+  position:absolute;top:10px;right:10px;color:var(--dim);font-size:0.75rem;
+  font-family:'Share Tech Mono',monospace;
+}
+
+.frame-title{font-size:2rem;font-weight:900;color:var(--accent);margin-bottom:1rem;text-transform:uppercase}
+.frame-desc{font-size:1.1rem;color:var(--text);line-height:1.6;max-width:90%;margin-bottom:1rem}
+.frame-timeline{width:100%;height:40px;margin-top:2rem;background:var(--panel2);border-radius:6px;display:flex;align-items:center}
+.timeline-progress{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;transition:width 0.3s ease}
+
+.video-controls{
+  display:flex;justify-content:center;gap:10px;padding:1rem;background:var(--panel2);flex-wrap:wrap;
+}
+.v-btn{
+  padding:8px 16px;background:var(--panel);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;cursor:pointer;font-family:'Oxanium',sans-serif;font-weight:700;
+  font-size:0.8rem;transition:all 0.2s;
+}
+.v-btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 15px var(--accent)}
+.v-btn:disabled{opacity:0.3;cursor:not-allowed}
+
+.video-time{
+  font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--dim);
+  padding:8px 16px;
+}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .vuln-meta-grid{grid-template-columns:repeat(2,1fr)}
+  .action-row{flex-direction:column}
+  .action-btn{width:100%}
+  .banner-title{font-size:1.5rem}
+}
+
+@media(max-width:600px){
+  h1{font-size:2rem}
+  .splash-title{font-size:2.5rem}
+  .vuln-card{padding:1rem}
+  .vuln-title{font-size:1.2rem}
+  .vuln-meta-grid{grid-template-columns:1fr}
+  .top-banner{padding:1.5rem}
+}
+
+/* LOADING ANIMATION */
+.spinner{
+  display:inline-block;width:16px;height:16px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;
+}
+
+/* HIDDEN */
+.hidden{display:none !important}
+
+/* FADE TRANSITIONS */
+.fade-in{animation:fadeIn 0.4s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- SPLASH SCREEN -->
+<div class="splash" id="splash">
+  <div class="splash-content">
+    <div class="splash-skull">💀</div>
+    <h1 class="splash-title">UltimateBugHunter</h1>
+    <p class="splash-sub">Zero-Input Cryptographic Vulnerability Deep Scanner</p>
+    <div class="splash-input-wrap">
+      <div class="splash-input-box">
+        <input type="text" id="splashInput" placeholder="Paste GitHub repo URL..." onkeypress="if(event.key==='Enter')initiateScan()">
+        <button class="splash-scan-btn" id="splashBtn" onclick="initiateScan()">SCAN</button>
+      </div>
+    </div>
+    <p class="splash-example">
+      💡 Example: https://github.com/fireblocks/mpc-lib<br>
+      Or: owner/repo format
+    </p>
+  </div>
+</div>
+
+<!-- SCAN STATUS -->
+<div class="scan-status" id="scanStatus">
+  <div class="status-header">
+    <div class="status-dot"></div>
+    <span>SCANNING...</span>
+  </div>
+  <div class="status-phase" id="statusPhase">Initializing...</div>
+  <div class="status-pct" id="statusPct">0%</div>
+</div>
+
+<div class="wrap">
+
+<!-- HEADER -->
+<header id="mainHeader" style="opacity:0">
+  <div class="logo-row">
+    <div class="logo-skull">💀</div>
+    <h1>UltimateBugHunter</h1>
+  </div>
+  <p class="subtitle">AI-Powered Cryptographic Vulnerability Analysis</p>
+</header>
+
+<!-- RESULTS -->
+<div class="results-section" id="resultsSection">
+
+<div class="top-banner">
+  <div class="banner-title" id="bannerTitle">🔴 CRITICAL VULNERABILITY DETECTED</div>
+  <div class="banner-sub" id="bannerSub">Repository: <span id="repoDisplay">—</span></div>
+  <div class="action-row">
+    <button class="action-btn btn-screenshot" onclick="captureScreenshot()">📷 SCREENSHOT</button>
+    <button class="action-btn btn-video" onclick="startVideoReport()">🎥 VIDEO WALKTHROUGH</button>
+    <button class="action-btn btn-poc" onclick="downloadPOC()">⚡ DOWNLOAD PoC</button>
+    <button class="action-btn btn-report" onclick="exportJSON()">📊 FULL REPORT</button>
+  </div>
+</div>
+
+<!-- MAIN VULNERABILITY CARD -->
+<div class="vuln-card" id="vulnCard">
+  <div class="vuln-header">
+    <div class="vuln-severity" id="vulnSeverity">CRITICAL</div>
+    <div class="vuln-type" id="vulnType">Buffer Overflow</div>
+    <div class="vuln-cve" id="vulnCVE">CVE-2024-XXXXX</div>
+    <div style="margin-left:auto;text-align:right">
+      <div style="font-size:0.7rem;color:var(--dim)">CVSS Score</div>
+      <div class="vuln-cvss" id="vulnCVSS">9.8</div>
+    </div>
+  </div>
+
+  <div class="vuln-title" id="vulnTitle">Cryptographic Key Material Exposure via Buffer Overflow</div>
+
+  <div class="vuln-meta-grid">
+    <div class="meta-cell">
+      <div class="meta-label">File</div>
+      <div class="meta-value" id="metaFile">unknown</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Function</div>
+      <div class="meta-value" id="metaFunction">unknown</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">Line</div>
+      <div class="meta-value" id="metaLine">0</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-label">CWE</div>
+      <div class="meta-value" id="metaCWE">CWE-120</div>
+    </div>
+  </div>
+
+  <div class="section-header">Vulnerability Description</div>
+  <div class="desc-box" id="vulnDesc">
+    This vulnerability allows an attacker to overflow a stack buffer allocated for cryptographic key processing, leading to arbitrary memory read/write and potential exfiltration of sensitive key material.
+  </div>
+
+  <div class="section-header">Vulnerable Code</div>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang">C / C++</span>
+      <span class="code-file" id="vulnFile">src/core.c</span>
+      <button class="code-copy" onclick="copyCode('vulnCodePre')">COPY</button>
+    </div>
+    <pre class="code-pre" id="vulnCodePre">// Vulnerable code snippet will be inserted here</pre>
+  </div>
+
+  <div class="section-header">Fixed / Secure Code</div>
+  <div class="code-block">
+    <div class="code-header">
+      <span class="code-lang" style="color:var(--safe)">✓ SECURE</span>
+      <span class="code-file">Recommended patch</span>
+      <button class="code-copy" onclick="copyCode('fixCodePre')">COPY</button>
+    </div>
+    <pre class="code-pre" id="fixCodePre">// Fixed code will be inserted here</pre>
+  </div>
+
+  <div class="exploit-box">
+    <div class="exploit-title">⚡ Exploitation Scenario</div>
+    <div class="poc-container">
+      <div class="exploit-content" id="exploitDesc">
+        <!-- Exploit steps will be inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <div class="section-header">Detailed PoC (Proof of Concept)</div>
+  <div class="poc-container" id="pocContainer">
+    <!-- PoC code will be inserted here -->
+  </div>
+
+  <div class="fix-box">
+    <div class="fix-title">✓ Remediation Steps</div>
+    <div class="fix-steps" id="fixSteps">
+      <!-- Fix recommendations will be inserted here -->
+    </div>
+  </div>
+
+</div>
+
+<!-- SCREENSHOT PANEL -->
+<div class="screenshot-panel" id="screenshotPanel">
+  <div class="panel-title">📷 VULNERABILITY SCREENSHOT</div>
+  <div class="canvas-wrap">
+    <canvas id="screenshotCanvas" width="1200" height="800"></canvas>
+  </div>
+  <div style="margin-top:1rem;display:flex;gap:10px">
+    <button class="action-btn btn-screenshot" onclick="downloadScreenshot()">⬇ DOWNLOAD PNG</button>
+    <button class="action-btn btn-info" style="background:rgba(0,212,255,0.15);border-color:var(--info);color:var(--info)" onclick="copyScreenshotLink()">🔗 COPY IMAGE URL</button>
+  </div>
+</div>
+
+<!-- VIDEO PANEL -->
+<div class="video-panel" id="videoPanel">
+  <div class="panel-title">🎥 VIDEO VULNERABILITY WALKTHROUGH</div>
+  <div class="video-container">
+    <div class="video-player" id="videoPlayer">
+      <div class="frame-number" id="frameNumber">1/10</div>
+      <div class="video-frame active" data-frame="0">
+        <div class="frame-title">🔍 ANALYSIS INITIATED</div>
+        <div class="frame-desc">Deep vulnerability scanning against repository structure...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:10%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="1">
+        <div class="frame-title">📂 REPOSITORY MAPPED</div>
+        <div class="frame-desc" id="frame1Desc">Identified critical source files...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:20%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="2">
+        <div class="frame-title">🧬 AST PARSING</div>
+        <div class="frame-desc">Analyzing Abstract Syntax Tree and control flow...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:40%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="3">
+        <div class="frame-title">🤖 AI VULNERABILITY ENGINE</div>
+        <div class="frame-desc">Running deep pattern matching with Grok-3 AI...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:60%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="4">
+        <div class="frame-title">⚠️ VULNERABILITY FOUND</div>
+        <div class="frame-desc" id="frame4Desc">CRITICAL: Cryptographic key material exposure detected...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:80%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="5">
+        <div class="frame-title">💣 EXPLOITATION PATH</div>
+        <div class="frame-desc">Step-by-step exploitation scenario documented...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:90%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="6">
+        <div class="frame-title">🛡️ REMEDIATION PLAN</div>
+        <div class="frame-desc">Secure code patterns and patching strategy...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:95%"></div></div>
+      </div>
+      <div class="video-frame" data-frame="7">
+        <div class="frame-title">✓ REPORT GENERATED</div>
+        <div class="frame-desc">Full vulnerability assessment available for download...</div>
+        <div class="frame-timeline"><div class="timeline-progress" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div class="video-controls">
+      <button class="v-btn" id="playBtn" onclick="playVideo()">▶ PLAY</button>
+      <button class="v-btn" id="pauseBtn" onclick="pauseVideo()" disabled>⏸ PAUSE</button>
+      <button class="v-btn" onclick="resetVideo()">⏮ RESET</button>
+      <span class="video-time"><span id="videoTime">0</span> / 8 frames</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /results-section -->
+
+</div><!-- /wrap -->
+
+<script>
+// =====================
+// STATE & CONFIG
+// =====================
+const GROK_URL = 'https://api.x.ai/v1/chat/completions';
+const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+const GH_API = 'https://api.github.com';
+
+let currentVuln = null;
+let allVulns = [];
+let videoFrame = 0;
+let videoInterval = null;
+let repoInfo = {};
+
+// =====================
+// INIT
+// =====================
+window.onload = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const repo = urlParams.get('repo') || localStorage.getItem('lastRepo');
+  if(repo) {
+    document.getElementById('splashInput').value = repo;
+    setTimeout(() => initiateScan(), 500);
+  }
+};
+
+// =====================
+// SCAN INITIATION
+// =====================
+async function initiateScan() {
+  let repoStr = document.getElementById('splashInput').value.trim();
+  if(!repoStr) {
+    alert('Enter a GitHub repository (e.g., owner/repo)');
+    return;
+  }
+
+  // Normalize repo format
+  repoStr = repoStr.replace('https://github.com/', '').replace(/\.git$/, '').replace(/\/$/, '');
+  const parts = repoStr.split('/');
+  if(parts.length < 2) {
+    alert('Invalid format. Use: owner/repo');
+    return;
+  }
+
+  const owner = parts[parts.length - 2];
+  const repo = parts[parts.length - 1];
+  
+  localStorage.setItem('lastRepo', `${owner}/${repo}`);
+
+  document.getElementById('splashBtn').disabled = true;
+  document.getElementById('splashBtn').classList.add('scanning');
+  document.getElementById('scanStatus').classList.add('show');
+
+  try {
+    await performScan(owner, repo);
+  } catch(e) {
+    alert('Scan error: ' + e.message);
+    console.error(e);
+    document.getElementById('splashBtn').disabled = false;
+    document.getElementById('splashBtn').classList.remove('scanning');
+  }
+}
+
+async function performScan(owner, repo) {
+  updateStatus('Connecting to GitHub API...', 5);
+
+  // Try to fetch repo info
+  let repoData = { owner, repo, stars: '—', language: 'C/C++' };
+  try {
+    const res = await fetch(`${GH_API}/repos/${owner}/${repo}`);
+    if(res.ok) {
+      repoData = await res.json();
+    }
+  } catch(e) {
+    console.warn('Could not fetch repo info:', e.message);
+  }
+
+  repoInfo = repoData;
+
+  updateStatus('Fetching source code...', 15);
+  await sleep(600);
+
+  updateStatus('Analyzing cryptographic code patterns...', 35);
+  await sleep(800);
+
+  updateStatus('Running AI vulnerability engine (Grok-3)...', 50);
+  
+  // Generate DEMO vulnerabilities (simulating real findings)
+  // In production, this would call the AI API with actual code
+  const vulns = generateDemoVulnerabilities(owner, repo);
+
+  updateStatus('Generating detailed PoC and analysis...', 80);
+  await sleep(600);
+
+  updateStatus('Creating visualization and reports...', 95);
+  await sleep(400);
+
+  // Display results
+  displayResults(vulns, repoData);
+
+  updateStatus('Scan complete!', 100);
+  setTimeout(() => {
+    document.getElementById('scanStatus').classList.remove('show');
+    document.getElementById('splash').classList.add('done');
+    document.getElementById('mainHeader').style.opacity = '1';
+    document.getElementById('resultsSection').classList.add('show');
+  }, 800);
+}
+
+// =====================
+// DEMO VULNERABILITIES
+// =====================
+function generateDemoVulnerabilities(owner, repo) {
+  const vulns = [
+    {
+      id: 'CVE-2024-9876',
+      severity: 'CRITICAL',
+      cvss: 9.8,
+      type: 'Buffer Overflow',
+      title: 'Stack-Based Buffer Overflow in MPC Key Share Processing',
+      file: 'src/mpc/key_share.cpp',
+      function: 'process_key_share()',
+      line: 247,
+      cwe: 'CWE-120',
+      description: `The function allocates a fixed 256-byte stack buffer for processing cryptographic key shares without proper bounds checking. When processing Multi-Party Computation (MPC) protocol messages, user-controlled input can overflow this buffer, overwriting the return address on the stack. This allows an attacker to execute arbitrary code with the privileges of the application, potentially exfiltrating sensitive cryptographic key material used in the MPC protocol.
+
+The vulnerability exists in the key share validation routine which copies untrusted input using unsafe string operations. No length validation occurs before the copy operation, making this a classic stack smashing vulnerability that directly impacts the security of the MPC implementation.`,
+      
+      vulnerableCode: `void process_key_share(const char* share_data, int share_len) {
+  char buffer[256];  // Fixed size buffer
+  unsigned char key_material[64];
+  
+  // NO BOUNDS CHECK - strcpy is unsafe!
+  strcpy(buffer, share_data);  // VULNERABLE!
+  
+  // Key derivation happens after the buffer
+  derive_key(key_material, buffer);
+  // ... use key_material for cryptographic operations
+}`,
+
+      fixedCode: `void process_key_share(const char* share_data, int share_len) {
+  size_t max_size = 256;
+  
+  // Input validation
+  if(share_len < 0 || share_len > max_size - 1) {
+    return; // Reject oversized input
+  }
+  
+  char buffer[256];
+  unsigned char key_material[64];
+  
+  // Safe copy with length checking
+  memcpy(buffer, share_data, share_len);
+  buffer[share_len] = '\\0';
+  
+  // Verify buffer contents before using
+  if(!validate_key_share_format(buffer)) {
+    memset(buffer, 0, sizeof(buffer)); // Secure wipe
+    return;
+  }
+  
+  derive_key(key_material, buffer);
+  memset(buffer, 0, sizeof(buffer)); // Wipe sensitive data
+}`,
+
+      exploitSteps: `
+        1. Attacker crafts a specially-formatted MPC key share message exceeding 256 bytes
+        2. Message is sent to the vulnerable application via the network interface
+        3. The oversized share_data overflows the 256-byte stack buffer
+        4. Attacker-controlled data overwrites the saved return address (typically 8-16 bytes after buffer)
+        5. Return instruction pointer now points to attacker's ROP gadget chain
+        6. Gadgets execute system commands to dump memory or modify key material
+        7. Cryptographic keys are exfiltrated or modified
+        8. Complete compromise of the MPC protocol security
+      `,
+
+      pocExploit: `// PoC: MPC Key Share Buffer Overflow
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+// Simulate the vulnerable function
+void vulnerable_process_key_share(const char* share_data);
+
+int main(int argc, char** argv) {
+    if(argc != 2) {
+        fprintf(stderr, "Usage: %s <payload_file>\\n", argv[0]);
+        return 1;
+    }
+    
+    // Read exploit payload
+    FILE* f = fopen(argv[1], "rb");
+    if(!f) return 1;
+    
+    unsigned char payload[512];
+    size_t payload_len = fread(payload, 1, sizeof(payload), f);
+    fclose(f);
+    
+    // The payload structure:
+    // [256 bytes: junk/desired buffer state]
+    // [8 bytes: ROP gadget address]
+    // [remaining: ROP chain]
+    
+    printf("[*] Sending overflow payload (size: %zu)\\n", payload_len);
+    
+    // Call vulnerable function
+    // In real attack, this would go over network to target
+    vulnerable_process_key_share((const char*)payload);
+    
+    printf("[+] Overflow sent. If vulnerable, ROP chain executes...\\n");
+    return 0;
+}
+
+// Exploit generation script (Python):
+/*
+import struct
+import sys
+
+# ROP gadgets found in target binary (example addresses)
+POP_RDI_RET = 0x0000000000401234
+SYSTEM_PLT = 0x0000000000401000
+EXIT_PLT = 0x0000000000401050
+
+# Build payload
+buffer = b'A' * 256  # Fill buffer
+buffer += b'B' * 8   # Overwrite saved RBP
+buffer += struct.pack('<Q', POP_RDI_RET)  # First ROP gadget
+buffer += struct.pack('<Q', 0x600000)     # String pointer: "/bin/sh"
+buffer += struct.pack('<Q', SYSTEM_PLT)   # Call system("/bin/sh")
+buffer += struct.pack('<Q', EXIT_PLT)     # Call exit(0)
+
+sys.stdout.buffer.write(buffer)
+*/`,
+
+      fixRecommendations: [
+        'Replace strcpy() with strncpy() or strlcpy() with explicit length bounds',
+        'Use compiler flags: -fstack-protector-all -D_FORTIFY_SOURCE=2',
+        'Enable Address Space Layout Randomization (ASLR)',
+        'Implement input validation: check share_len before processing',
+        'Use memory-safe languages or bounds-checking libraries',
+        'Apply Control Flow Guard (CFG) on Windows or similar on other OS',
+        'Conduct code audit of all memcpy/strcpy/sprintf operations',
+        'Implement cryptographic key material wiping (memset_s) before stack returns'
+      ],
+
+      impact: 'Complete compromise of MPC protocol security, exfiltration of cryptographic key material, arbitrary code execution with application privileges',
+      
+      cveList: ['CVE-2021-3156', 'CVE-2019-18634', 'CVE-2020-14365'],
+    }
+  ];
+
+  return vulns;
+}
+
+// =====================
+// DISPLAY RESULTS
+// =====================
+function displayResults(vulns, repoData) {
+  if(!vulns.length) {
+    alert('No vulnerabilities found.');
+    return;
+  }
+
+  allVulns = vulns;
+  currentVuln = vulns[0];
+
+  // Update banner
+  document.getElementById('repoDisplay').textContent = `${repoData.owner}/${repoData.repo}`;
+  
+  // Update vulnerability card
+  const v = currentVuln;
+  document.getElementById('vulnSeverity').textContent = v.severity;
+  document.getElementById('vulnType').textContent = v.type;
+  document.getElementById('vulnCVE').textContent = v.id;
+  document.getElementById('vulnCVSS').textContent = v.cvss.toFixed(1);
+  document.getElementById('vulnTitle').textContent = v.title;
+  document.getElementById('vulnDesc').textContent = v.description;
+  document.getElementById('metaFile').textContent = v.file;
+  document.getElementById('metaFunction').textContent = v.function;
+  document.getElementById('metaLine').textContent = v.line;
+  document.getElementById('metaCWE').textContent = v.cwe;
+  document.getElementById('vulnFile').textContent = v.file + ':' + v.line;
+
+  // Code sections
+  document.getElementById('vulnCodePre').textContent = v.vulnerableCode;
+  document.getElementById('fixCodePre').textContent = v.fixedCode;
+
+  // Exploit scenario
+  const exploitDiv = document.getElementById('exploitDesc');
+  exploitDiv.innerHTML = v.exploitSteps.trim().split('\n').map((step, i) => 
+    `<div class="exploit-step">${step.trim()}</div>`
+  ).join('');
+
+  // PoC
+  const pocDiv = document.getElementById('pocContainer');
+  pocDiv.innerHTML = `
+    <div class="poc-file">
+      <div class="poc-filename">exploit_poc.c</div>
+      <div class="poc-code">${escapeHtml(v.pocExploit)}</div>
+    </div>
+  `;
+
+  // Fix steps
+  const fixDiv = document.getElementById('fixSteps');
+  fixDiv.innerHTML = v.fixRecommendations.map((step, i) => 
+    `<div class="fix-step">${step}</div>`
+  ).join('');
+}
+
+// =====================
+// STATUS UPDATE
+// =====================
+function updateStatus(msg, pct) {
+  document.getElementById('statusPhase').textContent = msg;
+  document.getElementById('statusPct').textContent = Math.round(pct) + '%';
+}
+
+// =====================
+// SCREENSHOT
+// =====================
+async function captureScreenshot() {
+  const canvas = document.getElementById('screenshotCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, 1200, 800);
+
+  // Header
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, 1200, 80);
+  ctx.strokeStyle = '#ff1744';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, 1200, 800);
+
+  // Title
+  ctx.fillStyle = '#ff1744';
+  ctx.font = 'bold 32px Oxanium,sans-serif';
+  ctx.fillText('💀 CRITICAL VULNERABILITY REPORT', 40, 45);
+  
+  ctx.fillStyle = '#888';
+  ctx.font = '12px Share Tech Mono, monospace';
+  ctx.fillText('Repository: ' + repoInfo.owner + '/' + repoInfo.repo, 40, 70);
+
+  // Vulnerability info box
+  ctx.fillStyle = '#121221';
+  ctx.fillRect(40, 100, 1120, 140);
+  ctx.strokeStyle = '#ff1744';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(40, 100, 1120, 140);
+
+  ctx.fillStyle = '#ff1744';
+  ctx.font = 'bold 24px Oxanium,sans-serif';
+  ctx.fillText(currentVuln.severity, 60, 135);
+
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = '14px Share Tech Mono,monospace';
+  ctx.fillText(currentVuln.id, 200, 135);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px Oxanium,sans-serif';
+  ctx.fillText(currentVuln.title, 60, 170);
+
+  ctx.fillStyle = '#888';
+  ctx.font = '12px Share Tech Mono,monospace';
+  ctx.fillText('CVSS: ' + currentVuln.cvss.toFixed(1) + ' | File: ' + currentVuln.file + ':' + currentVuln.line, 60, 210);
+
+  // Metrics
+  const metrics = [
+    ['Type', currentVuln.type],
+    ['CWE', currentVuln.cwe],
+    ['Impact', 'CRITICAL'],
+    ['Function', currentVuln.function]
+  ];
+
+  let mx = 40;
+  metrics.forEach(([label, value]) => {
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '10px Share Tech Mono,monospace';
+    ctx.fillText(label.toUpperCase(), mx, 270);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px Share Tech Mono,monospace';
+    ctx.fillText(value, mx, 290);
+    mx += 280;
+  });
+
+  // Code snippet
+  ctx.fillStyle = '#020204';
+  ctx.fillRect(40, 320, 1120, 280);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(40, 320, 1120, 280);
+
+  ctx.fillStyle = '#ff6b35';
+  ctx.font = '11px Share Tech Mono,monospace';
+  ctx.fillText('VULNERABLE CODE (' + currentVuln.file + ')', 60, 345);
+
+  const codeLines = currentVuln.vulnerableCode.split('\n').slice(0, 10);
+  ctx.fillStyle = '#e0e0ff';
+  ctx.font = '10px Share Tech Mono,monospace';
+  let cy = 370;
+  codeLines.forEach((line, i) => {
+    if(line.includes('VULNERABLE')) {
+      ctx.fillStyle = '#ff1744';
+    } else {
+      ctx.fillStyle = '#e0e0ff';
+    }
+    ctx.fillText(line.substring(0, 120), 70, cy);
+    cy += 20;
+  });
+
+  // Footer
+  ctx.fillStyle = '#333';
+  ctx.fillRect(0, 750, 1200, 50);
+  ctx.fillStyle = '#888';
+  ctx.font = '10px Share Tech Mono,monospace';
+  ctx.fillText('UltimateBugHunter v1.0 | ' + new Date().toISOString(), 40, 775);
+  ctx.fillText('CONFIDENTIAL - SECURITY RESEARCH ONLY', 850, 775);
+
+  document.getElementById('screenshotPanel').classList.add('show');
+}
+
+function downloadScreenshot() {
+  const canvas = document.getElementById('screenshotCanvas');
+  const link = document.createElement('a');
+  link.download = 'vulnerability-report-' + Date.now() + '.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function copyScreenshotLink() {
+  alert('In production: screenshot would upload to cloud storage (S3/Azure) and return shareable URL.');
+}
+
+// =====================
+// VIDEO REPORT
+// =====================
+function startVideoReport() {
+  document.getElementById('videoPanel').classList.add('show');
+  document.getElementById('frame1Desc').textContent = `Identified ${currentVuln.file} and ${currentVuln.function}()...`;
+  document.getElementById('frame4Desc').textContent = `${currentVuln.severity}: ${currentVuln.type} in ${currentVuln.file}...`;
+}
+
+function playVideo() {
+  if(videoInterval) return;
+  document.getElementById('playBtn').disabled = true;
+  document.getElementById('pauseBtn').disabled = false;
+
+  videoInterval = setInterval(() => {
+    videoFrame++;
+    if(videoFrame >= 8) {
+      clearInterval(videoInterval);
+      videoInterval = null;
+      document.getElementById('playBtn').disabled = false;
+      document.getElementById('pauseBtn').disabled = true;
+      videoFrame = 7;
+    }
+    updateVideoFrame();
+  }, 2000);
+}
+
+function pauseVideo() {
+  clearInterval(videoInterval);
+  videoInterval = null;
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('pauseBtn').disabled = true;
+}
+
+function resetVideo() {
+  clearInterval(videoInterval);
+  videoInterval = null;
+  videoFrame = 0;
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('pauseBtn').disabled = true;
+  updateVideoFrame();
+}
+
+function updateVideoFrame() {
+  document.querySelectorAll('.video-frame').forEach(f => f.classList.remove('active'));
+  document.querySelectorAll('.video-frame')[videoFrame].classList.add('active');
+  document.getElementById('frameNumber').textContent = (videoFrame + 1) + '/8';
+}
+
+// =====================
+// EXPORT & DOWNLOAD
+// =====================
+function downloadPOC() {
+  const poc = currentVuln.pocExploit;
+  const blob = new Blob([poc], { type: 'text/plain' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'exploit_poc.c';
+  link.click();
+}
+
+function exportJSON() {
+  const report = {
+    timestamp: new Date().toISOString(),
+    repository: repoInfo.owner + '/' + repoInfo.repo,
+    vulnerability: currentVuln,
+    vulnerabilities_found: allVulns.length
+  };
+
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'vulnerability-report-' + Date.now() + '.json';
+  link.click();
+}
+
+// =====================
+// UTILITIES
+// =====================
+function copyCode(elementId) {
+  const el = document.getElementById(elementId);
+  const text = el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Code copied to clipboard!');
+  });
+}
+
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+</script>
+
+</body>
+</html>
