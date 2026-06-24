@@ -13,3 +13,6 @@ AI Chatbot built with Groq API + LLaMA 3.1
 ## Installation 📦
 ```bash
 pip install -r requirements.txt
+Available for Hire?
+Custom Code Review Bots - **$600-1000**
+Contact: aditya@email.com
